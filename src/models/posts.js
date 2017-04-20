@@ -2,21 +2,15 @@ import {
     fetchPosts,
     fetchPost
 } from '../services/posts'
+
+import pathToRegexp from 'path-to-regexp';
+
 export default {
   namespace: 'posts',
   state: {
     loading: false,
-    posts: ['1','2'],
-    postsByKey:{
-        '1': {
-            title: "Video dva",
-            category: 'dva',
-        },
-        '2': {
-            title: 'ANt dva',
-            category: 'antd',
-        }
-    }
+    posts: [],
+    postsByKey:{}
   },
   reducers: {
     showLoading(state){ return { ...state, loading:true}; },
@@ -27,7 +21,15 @@ export default {
             postsByKey,
             posts: Object.keys(postsByKey),
         }
-    }
+    },
+    update(state, { payload:post}){
+        const postsByKey = {
+            ...state.postsByKey,
+            [post.key]:post,
+        };
+        return {...state, postsByKey };
+    },
+
   },
   effects: {
     *fetchPosts(action,{call,put}){
@@ -36,12 +38,29 @@ export default {
         yield put({type: 'save',payload:result});
         yield put({type: 'hideLoading'});
     },
+    *fetchPost({ payload: key },{call,put}){
+        yield put({type:'showLoading'});
+        const result = yield call(fetchPost,key);
+        console.log('fetch post result',result);
+        yield put({type: 'update',payload:{...result,key}});
+        yield put({type: 'hideLoading'});  
+    },
   },
+
   subscriptions: {
     setup({dispatch,history}){
         return history.listen(({pathname})=>{
             if(pathname === '/posts'){
                 dispatch({type:'fetchPosts'})
+            }
+            // /posts/:key
+            const match = pathToRegexp('/posts/:key').exec(pathname)
+            if(match){
+                const key = match[1];
+                dispatch({
+                    type: 'fetchPost',
+                    payload: key,
+                });
             }
         });
     }
